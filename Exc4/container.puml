@@ -1,0 +1,54 @@
+@startuml InsureTech Container Diagram with OSAGO
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+LAYOUT_WITH_LEGEND()
+
+title Container diagram for InsureTech System with OSAGO Support
+
+Person(customer, "Customer", "Человек, желающий приобрести страховку")
+Person(partner, "Partner", "Бизнес-партнер, интегрирующий страховые услуги")
+
+System_Boundary(insureTech, "InsureTech") {
+    Container(webApp, "Web Application", "React", "Предоставляет функциональность клиентам через веб-браузер")
+    
+    Container(coreApp, "core-app", "Kotlin, Spring Boot", "<color:red>[Pattern: Rate Limiting]</color>\nОграничение входящих запросов от партнеров")
+    ContainerDb(coreDb, "core-db", "PostgreSQL", "Хранит страховые продукты, тарифы и полисы")
+    
+    Container(clientInfo, "client-info", "Kotlin, Spring Boot", "Управляет данными клиентов")
+    ContainerDb(clientDb, "client-db", "PostgreSQL", "Хранит информацию о клиентах")
+    
+    Container(productAggregator, "ins-product-aggregator", "Kotlin, Spring Boot", "Агрегирует страховые продукты")
+    
+    Container(osagoAggregator, "osago-aggregator", "Kotlin, Spring Boot", "Агрегирует предложения ОСАГО от страховых компаний")
+    ContainerDb(osagoDb, "osago-db", "PostgreSQL", "Хранит заявки и предложения ОСАГО")
+    
+    Container(settlement, "ins-comp-settlement", "Kotlin, Spring Boot", "Обрабатывает расчёты")
+    ContainerDb(settlementDb, "settlement-db", "PostgreSQL", "Хранит данные о расчётах")
+}
+
+System_Ext(osagoInsurance, "OSAGO Insurance Companies API", "REST API страховых компаний для ОСАГО\n(создание заявок и получение предложений)")
+System_Ext(insuranceCompanies, "Insurance Companies", "Внешние системы страховых компаний для других продуктов")
+System_Ext(paymentSystem, "Payment System", "Внешняя система обработки платежей")
+
+' Frontend interactions
+Rel(customer, webApp, "Uses", "HTTPS")
+Rel(partner, coreApp, "Uses", "REST API")
+Rel(webApp, coreApp, "Получает данные", "WebSocket")
+
+' Core app relationships
+Rel(coreApp, coreDb, "Reads/Writes", "JDBC")
+Rel(coreApp, clientInfo, "Uses", "REST")
+Rel(coreApp, osagoAggregator, "Получает предложения", "WebSocket")
+
+' Client info relationships
+Rel(clientInfo, clientDb, "Reads/Writes", "JDBC")
+
+' OSAGO aggregator relationships
+Rel(osagoAggregator, osagoDb, "Reads/Writes", "JDBC")
+Rel(osagoAggregator, osagoInsurance, "Запрашивает предложения", "<color:red>[Pattern: Circuit Breaker, Retry, Timeout]</color>\nREST API")
+
+' Settlement relationships
+Rel(settlement, settlementDb, "Reads/Writes", "JDBC")
+Rel(settlement, insuranceCompanies, "Sends settlements", "REST")
+
+@enduml
