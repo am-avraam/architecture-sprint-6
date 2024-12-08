@@ -1,0 +1,59 @@
+@startuml InsureTech Container Diagram
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+LAYOUT_WITH_LEGEND()
+
+title Container diagram for InsureTech System
+
+Person(customer, "Customer", "Человек, желающий приобрести страховку")
+Person(partner, "Partner", "Бизнес-партнер, интегрирующий страховые услуги")
+
+System_Boundary(insureTech, "InsureTech") {
+    Container(webApp, "Web Application", "React", "Предоставляет функциональность клиентам через веб-браузер")
+    
+    Container(coreApp, "core-app", "Kotlin, Spring Boot", "Обрабатывает отображение страховых продуктов и создание полисов")
+    ContainerDb(coreDb, "core-db", "PostgreSQL", "Хранит страховые продукты, тарифы и полисы")
+    
+    Container(clientInfo, "client-info", "Kotlin, Spring Boot", "Управляет данными клиентов")
+    ContainerDb(clientDb, "client-db", "PostgreSQL", "Хранит информацию о клиентах")
+    
+    Container(productAggregator, "ins-product-aggregator", "Kotlin, Spring Boot", "Агрегирует страховые продукты от компаний")
+    ContainerDb(productCache, "product-cache", "Redis", "Кэширует страховые продукты и тарифы")
+    
+    Container(settlement, "ins-comp-settlement", "Kotlin, Spring Boot", "Обрабатывает расчёты со страховыми компаниями")
+    ContainerDb(settlementDb, "settlement-db", "PostgreSQL", "Хранит данные о расчётах")
+    
+    Container(eventBus, "Event Bus", "Apache Kafka", "Обеспечивает событийное взаимодействие между сервисами")
+}
+
+System_Ext(insuranceCompanies, "Insurance Companies", "Внешние системы страховых компаний")
+System_Ext(paymentSystem, "Payment System", "Внешняя система обработки платежей")
+
+
+Rel(customer, webApp, "Uses", "HTTPS")
+Rel(webApp, coreApp, "Uses", "REST")
+Rel(webApp, paymentSystem, "Redirects to", "HTTPS")
+
+' Partner interactions
+Rel(partner, coreApp, "Uses", "REST API")
+
+' Core app relationships
+Rel(coreApp, coreDb, "Reads/Writes", "JDBC")
+Rel(coreApp, eventBus, "Publishes/Subscribes", "Events")
+Rel(coreApp, clientInfo, "Uses", "REST")
+
+' Client info relationships
+Rel(clientInfo, clientDb, "Reads/Writes", "JDBC")
+Rel(clientInfo, eventBus, "Publishes/Subscribes", "Events")
+
+' Product aggregator relationships
+Rel(productAggregator, insuranceCompanies, "Gets products", "REST")
+Rel(productAggregator, productCache, "Caches", "Redis Protocol")
+Rel(productAggregator, eventBus, "Publishes product updates", "Events")
+
+' Settlement relationships
+Rel(settlement, settlementDb, "Reads/Writes", "JDBC")
+Rel(settlement, eventBus, "Subscribes to policy events", "Events")
+Rel(settlement, insuranceCompanies, "Sends settlements", "REST")
+
+@enduml
